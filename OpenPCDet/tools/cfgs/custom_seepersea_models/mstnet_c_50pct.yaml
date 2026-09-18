@@ -1,0 +1,134 @@
+CLASS_NAMES: ['Ship']
+
+DATA_CONFIG:
+    _BASE_CONFIG_: cfgs/dataset_configs/custom_seepersea_50pct.yaml
+    # DynPillarVFE consumes raw points and voxelizes internally via torch_scatter,
+    # so replace real voxelization with the grid-only placeholder.
+    DATA_PROCESSOR:
+        - NAME: mask_points_and_boxes_outside_range
+          REMOVE_OUTSIDE_BOXES: True
+        - NAME: shuffle_points
+          SHUFFLE_ENABLED: {'train': True, 'test': True}
+        - NAME: transform_points_to_voxels_placeholder
+          VOXEL_SIZE: [0.5, 0.5, 45]
+
+MODEL:
+    NAME: CenterPoint
+
+    # MSTNet = mean pillar tokens -> SST -> BACKBONE_2D -> CenterHead.
+    # The SST replaces the learned PillarFeatureNet (not the 2D CNN), matching src.
+    # Variant C: learned dynamic pillar VFE (reference GeoMAE uses DynamicVFE) feeding
+    # the SST, instead of mean pillar tokens. SST in_channel therefore = 64.
+    VFE:
+        NAME: DynPillarVFE
+        WITH_DISTANCE: False
+        USE_ABSLOTE_XYZ: True
+        USE_NORM: True
+        NUM_FILTERS: [64, 64]
+
+    MAP_TO_BEV:
+        NAME: SSTBEV
+        NUM_BEV_FEATURES: 128
+        SST:
+            cls_sub_voxel: True
+            window_shape: [12, 12]
+            voxel_size: [0.5, 0.5, 45]        # must match DATA_PROCESSOR (z-span = one pillar)
+            shuffle_voxels: False
+            low: False
+            med: False
+            top: True
+            d_model: [128, 128, 128, 128, 128, 128]
+            nhead: [8, 8, 8, 8, 8, 8]
+            sub_voxel_ratio_low: [8, 4, 4]
+            sub_voxel_ratio_med: [4, 2, 2]
+            encoder_num_blocks: 6
+            decoder_num_blocks: 2
+            dim_feedforward: [256, 256, 256, 256, 256, 256]
+            debug: True
+            pos_temperature: 10000
+            in_channel: 64                    # learned VFE output width
+            normalize_pos: False
+            drop_info:
+                training:
+                    '0': {max_tokens: 56,  drop_range: [0, 56]}
+                    '1': {max_tokens: 144, drop_range: [56, 100000]}
+                test:
+                    '0': {max_tokens: 32,  drop_range: [0, 32]}
+                    '1': {max_tokens: 72,  drop_range: [32, 72]}
+                    '2': {max_tokens: 144, drop_range: [72, 100000]}
+
+    BACKBONE_2D:
+        NAME: BaseBEVBackbone
+        LAYER_NUMS: [ 3, 5, 5 ]
+        LAYER_STRIDES: [ 1, 2, 2 ]
+        NUM_FILTERS: [ 64, 128, 256 ]
+        UPSAMPLE_STRIDES: [ 1, 2, 4 ]
+        NUM_UPSAMPLE_FILTERS: [ 128, 128, 128 ]
+
+    DENSE_HEAD:
+        NAME: CenterHead
+        CLASS_AGNOSTIC: False
+
+        CLASS_NAMES_EACH_HEAD: [['Ship']]
+
+        SHARED_CONV_CHANNEL: 64
+        USE_BIAS_BEFORE_NORM: True
+        NUM_HM_CONV: 2
+        SEPARATE_HEAD_CFG:
+            HEAD_ORDER: ['center', 'center_z', 'dim', 'rot']
+            HEAD_DICT: {
+                'center': {'out_channels': 2, 'num_conv': 2},
+                'center_z': {'out_channels': 1, 'num_conv': 2},
+                'dim': {'out_channels': 3, 'num_conv': 2},
+                'rot': {'out_channels': 2, 'num_conv': 2},
+            }
+
+        TARGET_ASSIGNER_CONFIG:
+            FEATURE_MAP_STRIDE: 1
+            NUM_MAX_OBJS: 500
+            GAUSSIAN_OVERLAP: 0.1
+            MIN_RADIUS: 2
+
+        LOSS_CONFIG:
+            LOSS_WEIGHTS: {
+                'cls_weight': 1.0,
+                'loc_weight': 2.0,
+                'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+            }
+
+        POST_PROCESSING:
+            SCORE_THRESH: 0.01
+            POST_CENTER_LIMIT_RANGE: [-100, -100, -20, 100, 148, 25]
+            MAX_OBJ_PER_SAMPLE: 500
+            NMS_CONFIG:
+                NMS_TYPE: nms_gpu
+                NMS_THRESH: 0.01
+                NMS_PRE_MAXSIZE: 4096
+                NMS_POST_MAXSIZE: 500
+
+    POST_PROCESSING:
+        RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
+
+        EVAL_METRIC: kitti
+
+
+OPTIMIZATION:
+    BATCH_SIZE_PER_GPU: 6
+    NUM_EPOCHS: 80
+
+    OPTIMIZER: adam_onecycle
+    LR: 0.003
+    WEIGHT_DECAY: 0.01
+    MOMENTUM: 0.9
+
+    MOMS: [0.95, 0.85]
+    PCT_START: 0.4
+    DIV_FACTOR: 10
+    DECAY_STEP_LIST: [35, 45]
+    LR_DECAY: 0.1
+    LR_CLIP: 0.0000001
+
+    LR_WARMUP: False
+    WARMUP_EPOCH: 1
+
+    GRAD_NORM_CLIP: 10

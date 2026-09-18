@@ -1,0 +1,4 @@
+# Version constraints relaxed for Python 3.10 + PyTorch 2.0 compatibility
+numpy
+scikit-image
+tensorboard

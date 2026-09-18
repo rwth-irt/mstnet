@@ -1,0 +1,82 @@
+DATASET: 'CustomDataset'
+DATA_PATH: '../data/custom_seepersea'
+
+# Match MSTNet's SeePerSea range for a fair comparison
+POINT_CLOUD_RANGE: [-100, -100, -20, 100, 148, 25]
+
+MAP_CLASS_TO_KITTI: {
+    'Ship': 'Car',
+}
+
+DATA_SPLIT: {
+    'train': train_80pct,
+    'test': val
+}
+
+INFO_PATH: {
+    'train': [custom_infos_train_80pct.pkl],
+    'test': [custom_infos_val.pkl],
+}
+
+POINT_FEATURE_ENCODING: {
+    encoding_type: absolute_coordinates_encoding,
+    used_feature_list: ['x', 'y', 'z', 'intensity'],
+    src_feature_list: ['x', 'y', 'z', 'intensity'],
+}
+
+DATA_AUGMENTOR:
+    DISABLE_AUG_LIST: ['placeholder']
+    AUG_CONFIG_LIST:
+        - NAME: gt_sampling
+          USE_ROAD_PLANE: False
+          DB_INFO_PATH:
+              - custom_dbinfos_train_80pct.pkl
+          PREPARE: {
+             filter_by_min_points: ['Ship:5'],
+          }
+          SAMPLE_GROUPS: ['Ship:15']
+          NUM_POINT_FEATURES: 4
+          DATABASE_WITH_FAKELIDAR: False
+          REMOVE_EXTRA_WIDTH: [0.0, 0.0, 0.0]
+          LIMIT_WHOLE_SCENE: True
+
+        - NAME: random_world_flip
+          ALONG_AXIS_LIST: ['x', 'y']
+
+        - NAME: random_world_rotation
+          WORLD_ROT_ANGLE: [-0.78539816, 0.78539816]
+
+        - NAME: random_world_scaling
+          WORLD_SCALE_RANGE: [0.95, 1.05]
+
+DATA_PROCESSOR:
+    - NAME: mask_points_and_boxes_outside_range
+      REMOVE_OUTSIDE_BOXES: True
+
+    - NAME: shuffle_points
+      SHUFFLE_ENABLED: {
+        'train': True,
+        'test': True
+      }
+
+    # PointPillars-style pillar voxelization (z spans the full range -> single z-bin).
+    # Same as custom_seepersea.yaml -- the existing BEV branch is byte-for-byte identical.
+    - NAME: transform_points_to_voxels
+      VOXEL_SIZE: [0.5, 0.5, 45]
+      MAX_POINTS_PER_VOXEL: 128
+      MAX_NUMBER_OF_VOXELS: {
+        'train': 60000,
+        'test': 60000
+      }
+
+    # Second, independent voxelization: front view (x,z resolved at 0.5m, y collapsed to
+    # a single bin spanning the full 248m y-range -- same collapsing trick as above, applied
+    # to a different axis). Feeds the multi-view fusion branch (idea 3); does not touch
+    # 'voxels'/'voxel_coords'/'voxel_num_points' used by the BEV branch.
+    - NAME: transform_points_to_front_view_voxels
+      VOXEL_SIZE: [0.5, 248, 0.5]
+      MAX_POINTS_PER_VOXEL: 128
+      MAX_NUMBER_OF_VOXELS: {
+        'train': 60000,
+        'test': 60000
+      }

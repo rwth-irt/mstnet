@@ -1,0 +1,92 @@
+from mmcv.ops import (RoIAlign, SigmoidFocalLoss, get_compiler_version,
+                      get_compiling_cuda_version, nms, roi_align,
+                      sigmoid_focal_loss)
+
+try:
+    # Full eager imports — works when all CUDA extensions are compiled (conda env)
+    from .ball_query import ball_query
+    from .furthest_point_sample import (Points_Sampler, furthest_point_sample,
+                                        furthest_point_sample_with_dist)
+    from .gather_points import gather_points
+    from .group_points import (GroupAll, QueryAndGroup, group_points,
+                               grouping_operation)
+    from .interpolate import three_interpolate, three_nn
+    from .knn import knn
+    from .norm import NaiveSyncBatchNorm1d, NaiveSyncBatchNorm2d
+    from .paconv import PAConv, PAConvCUDA, assign_score_withk
+    from .pointnet_modules import (PAConvCUDASAModule, PAConvCUDASAModuleMSG,
+                                   PAConvSAModule, PAConvSAModuleMSG,
+                                   PointFPModule, PointSAModule, PointSAModuleMSG,
+                                   build_sa_module)
+    from .roiaware_pool3d import (RoIAwarePool3d, points_in_boxes_batch,
+                                  points_in_boxes_cpu, points_in_boxes_gpu)
+    from .sparse_block import (SparseBasicBlock, SparseBottleneck,
+                                   make_sparse_convmodule)
+    from .voxel import DynamicScatter, Voxelization, dynamic_scatter, voxelization, Voxelization_with_flag
+    from .sst.sst_ops import (flat2window, window2flat, SRATensor, DebugSRATensor,
+        get_flat2win_inds, get_inner_win_inds, make_continuous_inds,
+        flat2window_v2, window2flat_v2, get_flat2win_inds_v2, get_window_coors, scatter_v2)
+except ImportError:
+    # Fallback: lazy imports for mmcv 2.x env where CUDA extensions may not be compiled
+    from .norm import NaiveSyncBatchNorm1d, NaiveSyncBatchNorm2d
+    from .voxel import DynamicScatter, Voxelization, dynamic_scatter, voxelization, Voxelization_with_flag
+    from .sst.sst_ops import (flat2window, window2flat, SRATensor, DebugSRATensor,
+        get_flat2win_inds, get_inner_win_inds, make_continuous_inds,
+        flat2window_v2, window2flat_v2, get_flat2win_inds_v2, get_window_coors, scatter_v2)
+
+    def __getattr__(name):
+        _lazy_modules = {
+            'ball_query': ('.ball_query', 'ball_query'),
+            'furthest_point_sample': ('.furthest_point_sample', 'furthest_point_sample'),
+            'furthest_point_sample_with_dist': ('.furthest_point_sample', 'furthest_point_sample_with_dist'),
+            'Points_Sampler': ('.furthest_point_sample', 'Points_Sampler'),
+            'gather_points': ('.gather_points', 'gather_points'),
+            'GroupAll': ('.group_points', 'GroupAll'),
+            'QueryAndGroup': ('.group_points', 'QueryAndGroup'),
+            'group_points': ('.group_points', 'group_points'),
+            'grouping_operation': ('.group_points', 'grouping_operation'),
+            'three_interpolate': ('.interpolate', 'three_interpolate'),
+            'three_nn': ('.interpolate', 'three_nn'),
+            'knn': ('.knn', 'knn'),
+            'PAConv': ('.paconv', 'PAConv'),
+            'PAConvCUDA': ('.paconv', 'PAConvCUDA'),
+            'assign_score_withk': ('.paconv', 'assign_score_withk'),
+            'PointFPModule': ('.pointnet_modules', 'PointFPModule'),
+            'PointSAModule': ('.pointnet_modules', 'PointSAModule'),
+            'PointSAModuleMSG': ('.pointnet_modules', 'PointSAModuleMSG'),
+            'PAConvSAModule': ('.pointnet_modules', 'PAConvSAModule'),
+            'PAConvSAModuleMSG': ('.pointnet_modules', 'PAConvSAModuleMSG'),
+            'PAConvCUDASAModule': ('.pointnet_modules', 'PAConvCUDASAModule'),
+            'PAConvCUDASAModuleMSG': ('.pointnet_modules', 'PAConvCUDASAModuleMSG'),
+            'build_sa_module': ('.pointnet_modules', 'build_sa_module'),
+            'RoIAwarePool3d': ('.roiaware_pool3d', 'RoIAwarePool3d'),
+            'points_in_boxes_batch': ('.roiaware_pool3d', 'points_in_boxes_batch'),
+            'points_in_boxes_cpu': ('.roiaware_pool3d', 'points_in_boxes_cpu'),
+            'points_in_boxes_gpu': ('.roiaware_pool3d', 'points_in_boxes_gpu'),
+            'SparseBasicBlock': ('.sparse_block', 'SparseBasicBlock'),
+            'SparseBottleneck': ('.sparse_block', 'SparseBottleneck'),
+            'make_sparse_convmodule': ('.sparse_block', 'make_sparse_convmodule'),
+        }
+        if name in _lazy_modules:
+            mod_path, attr_name = _lazy_modules[name]
+            import importlib
+            mod = importlib.import_module(mod_path, package=__name__)
+            return getattr(mod, attr_name)
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+__all__ = [
+    'nms', 'RoIAlign', 'roi_align', 'get_compiler_version',
+    'get_compiling_cuda_version', 'NaiveSyncBatchNorm1d',
+    'NaiveSyncBatchNorm2d', 'Voxelization', 'voxelization',
+    'dynamic_scatter', 'DynamicScatter', 'sigmoid_focal_loss',
+    'SigmoidFocalLoss', 'SparseBasicBlock', 'SparseBottleneck',
+    'RoIAwarePool3d', 'points_in_boxes_gpu', 'points_in_boxes_cpu',
+    'make_sparse_convmodule', 'ball_query', 'knn', 'furthest_point_sample',
+    'furthest_point_sample_with_dist', 'three_interpolate', 'three_nn',
+    'gather_points', 'grouping_operation', 'group_points', 'GroupAll',
+    'QueryAndGroup', 'PointSAModule', 'PointSAModuleMSG', 'PointFPModule',
+    'points_in_boxes_batch', 'get_compiler_version', 'assign_score_withk',
+    'get_compiling_cuda_version', 'Points_Sampler', 'build_sa_module',
+    'PAConv', 'PAConvCUDA', 'PAConvSAModuleMSG', 'PAConvSAModule',
+    'PAConvCUDASAModule', 'PAConvCUDASAModuleMSG', 'Voxelization_with_flag',
+]

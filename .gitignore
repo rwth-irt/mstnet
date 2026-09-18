@@ -1,0 +1,48 @@
+# What the runs write. results/ holds the collected measurements and the tables
+# generated from them; the repository publishes the code that produces those, not
+# the numbers themselves, which belong to the paper. runs/ keeps its .gitkeep: the
+# documented launch commands redirect a log into it before the script that would
+# create the directory has started, e.g. `... > runs/campaign.log 2>&1 &`, and the
+# shell creates that redirect's target directory from nothing on a fresh clone.
+runs/*
+!runs/.gitkeep
+results/
+checkpoints/
+checkpoint_release/
+OpenPCDet/output/
+TED/output/
+LION/output/
+GeoMAE/work_dirs/
+
+# Local data. The .gitkeep files hold the tree shape; the split lists under
+# data/custom_*/ImageSets are tracked.
+data/raw/*
+!data/raw/.gitkeep
+data/ssl_nuscenes/*
+!data/ssl_nuscenes/.gitkeep
+data/custom_london/points/*
+data/custom_london/labels/*
+data/custom_london/*.pkl
+data/custom_london/gt_database*/
+data/custom_seepersea/points/*
+data/custom_seepersea/labels/*
+data/custom_seepersea/*.pkl
+data/custom_seepersea/gt_database*/
+!data/custom_london/points/.gitkeep
+!data/custom_london/labels/.gitkeep
+!data/custom_seepersea/points/.gitkeep
+!data/custom_seepersea/labels/.gitkeep
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.pyc
+*.o
+*.so
+
+# Model files never belong in git
+*.pth
+*.bin
+*.npy
