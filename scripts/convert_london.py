@@ -8,7 +8,10 @@ Splits: train = training/ ; val = testing/ (= MSTNet's London eval split).
 Stems are prefixed by split to avoid collisions in the shared points/labels dirs.
 """
 import os, glob
+from pathlib import Path
 import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
 
 LB = str(ROOT / "data" / "raw" / "london_dataset" / "Datasets" / "real_world_balanced_temporal")
 OUT = str(ROOT / "data" / "custom_london")

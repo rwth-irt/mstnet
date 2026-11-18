@@ -3,13 +3,15 @@
 Create a temporally-clean, class-balanced split of the London maritime dataset.
 
 Improvement over the original chunked split (create_temporal_stratified_split.py):
-- Uses 200-frame chunks (20s at 10Hz) instead of 500 for finer granularity
+- Uses 100-frame chunks (about 6.7 s at the 15 Hz of the recording) instead of 500
+  for finer granularity
 - Optimizes chunk assignment for class proportion, distance, AND volume balance
 - Achieves near-proportional class distribution in all splits
 
-At 10Hz, 200 frames = 20s. A boat at 10kn covers ~100m in 20s, which exceeds
-the VLP-16 effective detection range (~70m). Combined with 20-frame gap buffers
-at cross-split boundaries, this guarantees zero temporal leakage.
+Ten frames are discarded on each side of every boundary between splits, so that
+adjacent, nearly identical frames do not fall into different splits. Moored vessels
+that remain visible over long periods still appear in several splits (Section 4.3 of
+the paper).
 
 Usage:
     python create_balanced_temporal_split.py --dry-run
@@ -32,8 +34,8 @@ SRC_ROOTS = [
 ]
 DST_ROOT = str(_LB / "real_world_balanced_temporal")
 
-CHUNK_SIZE = 100   # frames per chunk (~10s at 10Hz)
-GAP_SIZE = 10      # frames excluded at each side of cross-split boundary (~1s at 10Hz)
+CHUNK_SIZE = 100   # frames per chunk (about 6.7 s at 15 Hz)
+GAP_SIZE = 10      # frames excluded at each side of cross-split boundary (about 0.7 s at 15 Hz)
 SEED = 42
 N_SEARCH_ITER = 2_000_000
 

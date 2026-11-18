@@ -1,6 +1,6 @@
 """Build the two combined pretraining sets out of the three single-source ones.
 
-Experiment E.IV pretrains on Pohang Canal together with each target domain, so two
+Experiment E.II pretrains on Pohang Canal together with each target domain, so two
 further corpora are needed beyond the single-source ones. Neither copies any point
 cloud. The frame list of a combined set is the concatenation of the two info lists it
 joins, and its LIDAR_TOP directory is a tree of symlinks into the two sources, each

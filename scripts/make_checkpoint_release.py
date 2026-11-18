@@ -3,14 +3,9 @@
 One checkpoint per reported run, plus the pretraining checkpoints the fine-tuning
 started from, plus a README that maps each file back to the experiment it belongs to.
 
-The checkpoint of a run is taken from the ckpt column of all_results.csv, which
-collect_results.py reads out of the evaluation log itself, so the file copied here is
-the one the reported number was measured on and not whatever else the run directory
-happens to hold.
-
-The eighteen cross-dataset pretraining runs that make_paper_tables.py excludes are
-excluded here too. They were executed but the study does not report them, so shipping
-them would put files in the release that no table explains.
+The runs are those of runs/campaign_results.jsonl whose family the paper reports (E.I,
+E.II, E.III and Appendix C). The checkpoint of a run is the one its record names, the file
+the reported number was measured on, and not whatever else the run directory holds.
 
 Usage:
   python make_checkpoint_release.py --dry-run      what it would copy, copies nothing
@@ -23,10 +18,9 @@ import json
 import shutil
 from pathlib import Path
 
-import make_paper_tables as M
-
 ROOT = Path(__file__).resolve().parents[1]
-CSV = ROOT / "results" / "all_results.csv"
+RECORDS = ROOT / "runs" / "campaign_results.jsonl"
+REPO = {"openpcdet": ROOT / "OpenPCDet", "ted": ROOT / "TED", "lion": ROOT / "LION"}
 SSL = ROOT / "checkpoints"
 DEST = ROOT / "checkpoint_release"
 
@@ -44,22 +38,11 @@ DEST = ROOT / "checkpoint_release"
 # in the working tree and MSTNet in the paper, and the release has to bridge that.
 MODEL = {
     "mstnet": "MSTNet",
-    "mstnet_c": "MSTNet, learned encoder",
-    "mstnet_zaware": "MSTNet + height-aware encoding",
-    "mstnet_stage2": "MSTNet + refinement stage",
-    "mstnet_zaware_stage2": "MSTNet + both measures",
-    "mstnet_zaware_stage2_zonly": "MSTNet + both, vertical only",
-    "mstnet_pseudo": "pseudo-label stage (stage one only)",
-    "mstnet_pseudo_zaware": "pseudo-label stage, height-aware (stage one only)",
     "centerpoint": "CenterPoint", "pointpillar": "PointPillars", "second": "SECOND",
     "voxelnext": "VoxelNeXt", "voxel_rcnn": "Voxel R-CNN", "pv_rcnn": "PV-RCNN",
     "transfusion": "TransFusion", "dsvt": "DSVT, pillar", "dsvt_voxel": "DSVT, voxel",
     "ted_s": "TED-S", "ted_s_perclass": "TED-S, per-class thresholds",
     "lion_mamba": "LION-Mamba",
-    # The diagnostic that refits the anchor prior to the budget being trained on,
-    # instead of keeping the prior the SeePerSea authors publish. It is a diagnostic and
-    # no table reports it, which the group column says.
-    "pointpillar_ba": "PointPillars, anchor prior refitted to the budget",
 }
 
 
@@ -70,9 +53,7 @@ def model_name(stem):
     model trained on different label budgets and the budget is its own column.
     """
     import re as _re
-    base = _re.sub(r"_\d+pct(_ba)?$", "", stem)
-    if stem.endswith("_ba"):
-        base += "_ba"
+    base = _re.sub(r"_\d+pct$", "", stem)
     return MODEL.get(base, base)
 
 # The run tag to the pretraining the run started from.
@@ -83,14 +64,11 @@ PRETRAIN = {
     "ssl_pohang": "cross-domain maritime, Pohang Canal",
     "ssl_pohang_seepersea": "combined, Pohang and SeePerSea",
     "ssl_pohang_london": "combined, Pohang and Thames",
-    "pseudo2": "in-domain masked, then the pseudo-label stage",
+    "ssl_noval": "in-domain without the validation frames, masked (GeoMAE)",
 }
 
-# What each pretraining checkpoint holds. All nine are the masked objective of GeoMAE on
-# the sparse transformer; they differ in the unlabeled set and in the voxel encoder the
-# transformer was pretrained behind. A tenth pretraining run exists and is not shipped,
-# an earlier nine-channel version of the learned encoder that the ten-channel one
-# superseded before any reported run used it.
+# What each pretraining checkpoint holds. All seven are the masked objective of GeoMAE on
+# the sparse transformer behind the mean voxel encoder; they differ in the unlabeled set.
 SSL_DESC = {
     "mstnet_ssl_seepersea.pth":
         "mean encoder, in-domain, the 8111 unlabeled SeePerSea frames",
@@ -104,29 +82,16 @@ SSL_DESC = {
         "mean encoder, combined, Pohang Canal and SeePerSea, 56999 frames",
     "mstnet_ssl_pohang_london.pth":
         "mean encoder, combined, Pohang Canal and Thames, 57814 frames",
-    "mstnet_c_ssl_seepersea.pth":
-        "learned Pillar Feature Net encoder, in-domain SeePerSea",
-    "mstnet_c_ssl_london.pth":
-        "learned Pillar Feature Net encoder, in-domain Thames",
-    "mstnet_ssl_seepersea_zaware.pth":
-        "height-aware encoder, 37 vertical bins, in-domain SeePerSea",
+    "mstnet_ssl_seepersea_noval.pth":
+        "mean encoder, in-domain without the validation frames, 7571 SeePerSea frames",
 }
 
 FAMILY = {
-    "budget": ("E.I and E.III", "Label budget sweep"),
-    "chain": ("E.II", "Voxel encoder"),
-    "pretrain-source": ("E.IV", "Pretraining data"),
-    "pseudo": ("E.V", "Pseudo-label pretraining"),
-    "height": ("E.VI", "Measures against the vertical deficit"),
-    "height-budget": ("E.VI", "Measures against the vertical deficit, over the budget"),
-    "combo": ("E.VI", "Both measures combined, over the budget"),
-    "triple": ("E.VI", "Pseudo-label stage on the strongest configuration"),
-    "benchmark": ("E.VII", "Benchmark against published detectors"),
-    "benchmark-repair": ("E.VII", "Benchmark, repaired configuration"),
-    "seeds": ("repeats", "Repeated runs of selected cells"),
-    "diagnostic": ("appendix", "Diagnostics, not a reported cell"),
+    "E.I": ("E.I", "Label efficiency"),
+    "E.II": ("E.II", "Pretraining data"),
+    "E.III": ("E.III", "Benchmark and label budget sweeps"),
+    "appendix-C": ("Appendix C", "Pretraining without the validation frames"),
 }
-
 DSNAME = {"london": "Thames", "seepersea": "SeePerSea"}
 
 # Runs that are shipped and discussed but whose cell no table reports, so that nobody
@@ -141,7 +106,7 @@ PRETRAIN_DATA = {
     "ssl_pohang": ["Pohang Canal"],
     "ssl_pohang_seepersea": ["Pohang Canal", "SeePerSea"],
     "ssl_pohang_london": ["Pohang Canal", "Thames"],
-    "pseudo2": ["<in-domain>"],
+    "ssl_noval": ["<in-domain>"],
 }
 SSL_DATA = {
     "mstnet_ssl_seepersea.pth": ["SeePerSea"],
@@ -150,9 +115,7 @@ SSL_DATA = {
     "mstnet_ssl_kitti.pth": ["KITTI"],
     "mstnet_ssl_pohang_seepersea.pth": ["Pohang Canal", "SeePerSea"],
     "mstnet_ssl_pohang_london.pth": ["Pohang Canal", "Thames"],
-    "mstnet_c_ssl_seepersea.pth": ["SeePerSea"],
-    "mstnet_c_ssl_london.pth": ["Thames"],
-    "mstnet_ssl_seepersea_zaware.pth": ["SeePerSea"],
+    "mstnet_ssl_seepersea_noval.pth": ["SeePerSea"],
 }
 
 # The terms each dataset is published under, checked against the source in September
@@ -168,66 +131,34 @@ DATASET_TERMS = {
 STRICTNESS = {"CC BY 4.0": 0, "CC BY-NC 4.0": 1, "CC BY-NC-SA 3.0": 2,
               "CC BY-NC-SA 4.0": 3}
 
-NOTES = {
-    "CAM_london_ted_s_rand":
-        "superseded, the single-class threshold lists of the published KITTI recipe; "
-        "the benchmark table reports the per-class configuration instead, and this run "
-        "is the failure Sections 3.8 and 4.7 describe",
-}
-
-
-def families():
-    """Map every run name to the experiment family the campaign filed it under."""
-    out = {}
-    for f in ("campaign_results.jsonl", "mstnet_c_repair_results.jsonl"):
-        p = ROOT / "runs" / f
-        if not p.exists():
-            continue
-        for line in p.read_text().splitlines():
-            try:
-                r = json.loads(line)
-            except Exception:
-                continue
-            if r.get("name") and r.get("family"):
-                out["CAM_" + r["name"]] = r["family"]
-    return out
-
-
-def parse_ckpt(path):
-    """cfg stem, run tag and epoch out of the checkpoint's own path.
-
-    The layout is output/custom_<ds>_models/<stem>/<tag>/ckpt/checkpoint_epoch_<n>.pth,
-    which is more reliable than parsing the experiment name, where the stem and the
-    checkpoint name run together without a separator.
-    """
-    p = Path(path)
-    return p.parent.parent.parent.name, p.parent.parent.name, p.stem.split("_")[-1]
+def records():
+    """The last record of every reported run; a later record of a run supersedes an earlier one."""
+    last = {}
+    for line in RECORDS.read_text().splitlines():
+        r = json.loads(line)
+        if r.get("ap") and r.get("ckpt_file") and r.get("family") in FAMILY:
+            last[r["name"]] = r
+    return list(last.values())
 
 
 def manifest():
     """Build the list of checkpoints to publish, one per reported run.
 
     Each entry carries the paper name of the model, the experiment it belongs to, the
-    pretraining it started from and the path of the file itself. Runs the tables
-    exclude are excluded here too, so the release holds nothing no table explains.
+    pretraining it started from and the path of the file itself.
     """
-    fam = families()
-    rows = [r for r in csv.DictReader(CSV.open())
-            if not any(pat.match(r["experiment"]) for pat in M.EXCLUDED)]
     out = []
-    for r in rows:
-        stem, tag, epoch = parse_ckpt(r["ckpt"])
-        seed = 1
-        base = tag
+    for r in records():
+        ds, stem, tag = r["ds"], r["cfg_stem"], r["tag"]
+        seed, base = 1, tag
         if tag.endswith("_s2"):
             seed, base = 2, tag[:-3]
         elif tag.endswith("_s3"):
             seed, base = 3, tag[:-3]
-        ds = r["dataset"]
+        m = r["ap"].get("mAP", r["ap"])
         out.append({
-            "file": f"finetuning/{'thames' if ds == 'london' else 'seepersea'}/"
-                    f"{r['experiment'][len('CAM_'):]}.pth",
-            "src": r["ckpt"],
+            "file": f"finetuning/{'thames' if ds == 'london' else 'seepersea'}/{r['name']}.pth",
+            "src": str(REPO[r["fw"]] / "output" / f"custom_{ds}_models" / stem / tag / "ckpt" / r["ckpt_file"]),
             "dataset": DSNAME.get(ds, ds),
             "model": model_name(stem),
             "config": f"custom_{ds}_models/{stem}.yaml",
@@ -236,12 +167,12 @@ def manifest():
                 if stem.endswith("pct") else ""),
             "pretraining": PRETRAIN.get(base, base),
             "seed": seed,
-            "epoch": epoch,
-            "experiment": FAMILY.get(fam.get(r["experiment"], ""), ("?", "?"))[0],
-            "group": FAMILY.get(fam.get(r["experiment"], ""), ("?", "?"))[1],
-            "bev_0.5": r.get("R40_bev_0.5_mAP") or r.get("R40_bev_0.5_Car") or "",
-            "3d_0.5": r.get("R40_3d_0.5_mAP") or r.get("R40_3d_0.5_Car") or "",
-            "note": NOTES.get(r["experiment"], ""),
+            "epoch": r["ckpt_file"].split("_")[-1].split(".")[0],
+            "experiment": FAMILY[r["family"]][0],
+            "group": FAMILY[r["family"]][1],
+            "bev_0.5": m["bev@0.5"],
+            "3d_0.5": m["3d@0.5"],
+            "note": "",
             "derived_from": ", ".join(sorted(set(
                 [DSNAME.get(ds, ds)] +
                 [DSNAME.get(ds, ds) if x == "<in-domain>" else x
@@ -403,20 +334,14 @@ def write_readme(dest, man, total):
          "- BEV and 3D are average precision at 40 recall positions and an overlap of 0.5,",
          "  meaned over the three vessel classes on Thames and on the single class on",
          "  SeePerSea. They are the values the manuscript reports for that run.",
-         "- Seed 1 is the run the manuscript's tables report. Seeds 2 and 3 exist only for",
-         "  the twelve repeated cells. The supervised stage is unseeded, so they differ",
+         "- Seeds 2 and 3 exist for the repeated cells, which the manuscript reports as the",
+         "  mean of the three runs. The supervised stage is unseeded, so they differ",
          "  from seed 1 in the initialization of every module not loaded from a",
          "  checkpoint, in the order the frames are drawn and in the augmentation sampled",
          "  for each of them. The pretraining runs, by contrast, are seeded and",
-         "  deterministic.",
-         "- Eighteen executed runs are deliberately absent. They pretrain one annotated",
-         "  dataset on the other, which is not one of the four schemes the study defines,",
-         "  and no table reports them. A tenth pretraining run is likewise absent, an",
-         "  earlier nine-channel version of the learned encoder that the ten-channel one",
-         "  superseded before any reported run used it.", ""]
+         "  deterministic.", ""]
 
-    order = ["pretraining", "E.I and E.III", "E.II", "E.IV", "E.V", "E.VI", "E.VII",
-             "repeats", "appendix"]
+    order = ["pretraining", "E.I", "E.II", "E.III", "Appendix C"]
     groups = {}
     for m in man:
         groups.setdefault((m["experiment"], m["group"]), []).append(m)

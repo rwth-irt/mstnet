@@ -1,10 +1,10 @@
-"""GeoMAE SSL pre-training on SeePerSea with a LEARNED pillar encoder.
+"""GeoMAE SSL pre-training on SeePerSea without the 629 validation frames
+(7571 of the 8111 frames of ssl_seepersea.py; control of Appendix C of the paper).
+Build the info file first with scripts/make_ssl_noval_infos.py. The epochs rise from
+250 to 268 so that the encoder sees the same number of samples as with ssl_seepersea.py.
 
-Variant of ssl_seepersea.py that replaces the mean voxel encoder
-(DynamicSimpleVFE) with PointPillars' learned DynamicPillarFeatureNet, i.e. the
-"honest PointPillars + SST" architecture: a learned, z-retaining pillar VFE feeds
-the SST backbone. Only the voxel_encoder and the backbone in_channel change; the
-SSL reconstruction scheme is identical. Existing configs/checkpoints untouched.
+Aligned with supervised training: point_cloud_range z_min=-20.
+SeePerSea uses 4-dim .bin (x,y,z,intensity) converted from PCD.
 """
 _base_ = [
     "../_base_/datasets/nus-3d-ssl.py",
@@ -25,10 +25,6 @@ data_root = "data/ssl_nuscenes/seepersea/data/nuscenes/"
 voxel_size = (0.5, 0.5, 55)
 window_shape = (12, 12)
 point_cloud_range = [-100, -100, -20, 100, 100, 35]
-
-# learned pillar VFE output dim -> SST in_channel
-vfe_feat_channels = (32, 64)   # -> Linear(10,32) + Linear(64,64) = OpenPCDet DynPillarVFE parity
-sst_in_channel = vfe_feat_channels[-1]
 
 sub_voxel_size_low = (0.125, 0.125, 6.875)
 sub_voxel_size_med = (0.25, 0.25, 13.75)
@@ -97,15 +93,8 @@ model = dict(
                                   point_cloud_range=point_cloud_range, max_voxels=(80000, 80000)),
     hard_sub_voxel_layer_top=dict(voxel_size=voxel_size, max_num_points=100,
                                   point_cloud_range=point_cloud_range, max_voxels=(40000, 40000)),
-    # LEARNED pillar VFE (PointPillars-style) instead of mean DynamicSimpleVFE
-    voxel_encoder=dict(type="DynamicPillarFeatureNet",
-                       in_channels=4, feat_channels=vfe_feat_channels,
-                       with_distance=False,
-                       # voxel_center_z adds the vertical pillar-centre offset ->
-                       # 10 input features, matching OpenPCDet's DynPillarVFE so the
-                       # pretrained VFE transfers 1:1 into the OpenPCDet MSTNet-C.
-                       voxel_center_z=True,
-                       voxel_size=voxel_size, point_cloud_range=point_cloud_range),
+    voxel_encoder=dict(type="DynamicSimpleVFE", voxel_size=voxel_size,
+                       point_cloud_range=point_cloud_range),
     backbone=dict(
         type="MultiMAESSTSPChoose",
         cls_sub_voxel=cls_sub_voxel,
@@ -123,7 +112,7 @@ model = dict(
         output_shape=[400, 400],
         debug=True, drop_info=drop_info,
         pos_temperature=10000, normalize_pos=False,
-        in_channel=sst_in_channel,
+        in_channel=4,
     ),
 )
 
@@ -143,15 +132,12 @@ train_pipeline = [
 ]
 
 data = dict(
-    # 16 as in every other pretraining of this study (raised from 8 on 2026-08-17). The
-    # epoch count fixes sample exposure, so a smaller batch here would only cost wall
-    # clock and change the number of updates against the mean-encoder arm this config is
-    # compared with.
+    # 16, as in ssl_seepersea.py, whose checkpoint this control is compared with.
     samples_per_gpu=16,
     workers_per_gpu=4,
     train=dict(
         type=dataset_type, data_root=data_root,
-        ann_file=data_root + "nuscenes_ssl_infos_train.pkl",
+        ann_file=data_root + "nuscenes_ssl_infos_train_noval.pkl",
         pipeline=train_pipeline, classes=class_names,
         modality=input_modality, test_mode=False, box_type_3d="LiDAR",
     ),
@@ -159,5 +145,5 @@ data = dict(
 
 optimizer_config = dict(grad_clip=dict(max_norm=5, norm_type=2))
 lr = 1e-5
-runner = dict(type="EpochBasedRunner", max_epochs=250)
+runner = dict(type="EpochBasedRunner", max_epochs=268)
 evaluation = dict(interval=-1)

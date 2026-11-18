@@ -1,4 +1,4 @@
-"""Where a detection sits relative to the vessel it found, for the runs of E.VI.
+"""Where a detection sits relative to the vessel it found, on the SeePerSea validation split.
 
 The average precision of Section 3 says how many vessels a configuration finds at an
 overlap of 0.5, once on the ground plane and once in three dimensions. It does not say
@@ -29,15 +29,14 @@ OUT = ROOT / "OpenPCDet" / "output" / "custom_seepersea_models"
 GT = ROOT / "data" / "custom_seepersea" / "custom_infos_val.pkl"
 DST = ROOT / "results" / "localization_error.csv"
 
-# (label, config stem, run tag). The label is what the manuscript prints.
-RUNS = [
-    ("MSTNet, random", "mstnet", "rand"),
-    ("MSTNet", "mstnet", "ssl"),
-    ("Height-aware encoding", "mstnet_zaware", "ssl"),
-    ("Refinement stage", "mstnet_stage2", "ssl"),
-    ("Both", "mstnet_zaware_stage2", "ssl"),
-    ("Both, vertical only", "mstnet_zaware_stage2_zonly", "ssl"),
-]
+# (label, config stem, run tag): CenterPoint and MSTNet without and with pretraining at 5 and
+# 100 % of the labels (Sections 3.1.1 and 3.2.1 of the paper); repeated cells per run.
+RUNS = [(f"CenterPoint, {b} %", cfg, "rand")
+        for b, cfg in ((5, "centerpoint_5pct"), (100, "centerpoint"))]
+RUNS += [(f"MSTNet, {init}, {b} %, run {r}", cfg, tag + sfx)
+         for b, cfg in ((5, "mstnet_5pct"), (100, "mstnet"))
+         for init, tag in (("random", "rand"), ("pretrained", "ssl"))
+         for r, sfx in ((1, ""), (2, "_s2"), (3, "_s3"))]
 
 
 def corners(box):
@@ -185,8 +184,7 @@ def measure(stem, tag, gt):
     if n == 0:
         return None
     # Spearman between the score a detection carries and the overlap it actually
-    # reaches in 3D, over the matched pairs. The refinement stage is trained to predict
-    # that overlap, so this is the quantity its second output is supposed to raise.
+    # reaches in 3D, over the matched pairs.
     rho = float(spearman(sc, i3)) if n > 2 else float("nan")
     return dict(matched=n, gt=ngt, recall=100.0 * n / ngt,
                 dz=float(np.median(dz)), dz90=float(np.percentile(dz, 90)),
@@ -195,7 +193,7 @@ def measure(stem, tag, gt):
 
 
 def main():
-    """Measure every run of E.VI and write the per-parameter errors to the CSV."""
+    """Measure every run and write the per-parameter errors to the CSV."""
     gt = pickle.load(GT.open("rb"))
     rows = []
     for label, stem, tag in RUNS:

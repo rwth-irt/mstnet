@@ -16,9 +16,10 @@ export GEOMAE_PYTHON=~/miniconda3/envs/geomae/bin/python
 
 ## 2. Raw data
 
-Place the public dataset releases under `data/raw/` as described in
-`data/README.md`. Thames, SeePerSea and KITTI are downloaded by hand from their
-authors; Pohang is fetched by script in step 3.
+Store the public dataset releases under `data/raw/` in the layout described in
+`data/README.md`; SeePerSea requires both the aggregated and the separated release.
+Thames, SeePerSea and KITTI are obtained from their authors, and the Pohang Canal
+archives are downloaded by a script in step 3.
 
 ## 3. Build the datasets
 
@@ -32,12 +33,13 @@ python scripts/create_balanced_temporal_split.py     # detection layout
 
 # Detection datasets -> data/custom_{london,seepersea}
 python scripts/convert_london.py
-python scripts/convert_seepersea.py
+python scripts/convert_seepersea.py                  # 360-degree annotations of the separated release
 
 # Pretraining corpora -> data/ssl_nuscenes/
 python scripts/prepare_ssl_datasets.py all           # london, seepersea, kitti
 python scripts/rebuild_pohang_corpus.py              # pohang
 python scripts/build_combined_ssl_sets.py            # pohang_london, pohang_seepersea
+python scripts/make_ssl_noval_infos.py               # seepersea without the validation frames (Appendix C)
 
 # One intensity scale everywhere; run without --apply first to see the report
 python scripts/renormalise_intensity.py --apply
@@ -55,18 +57,6 @@ inspectable, not so the lists get replaced, and none of the steps above calls th
 without their generator, so for those the lists themselves are the record; how they
 were drawn is described in the paper.
 
-Only the `mstnet_pseudo*` runs additionally need clustering-based pseudo labels,
-SeePerSea only. Each budget gets its own pass so the size prior sees that budget's
-labels alone, then the info pickles are built in one go:
-
-```bash
-python scripts/make_pseudo_labels.py                                          # full labels
-for b in 5 10 20 50 80; do
-  python scripts/make_pseudo_labels.py --size-split train_${b}pct.txt --out-suffix ${b}pct
-done
-python scripts/build_pseudo_infos.py
-```
-
 ## 4. Check before training
 
 ```bash
@@ -80,10 +70,10 @@ that are intrinsic to the architectures and are documented in the paper.
 ## 5. Pretraining, then the campaign
 
 ```bash
-# The nine self-supervised runs on two GPUs; writes checkpoints/
+# The seven self-supervised runs on two GPUs; writes checkpoints/
 python scripts/run_pretraining_all.py
 
-# The supervised campaign, 204 runs, about 983 GPU-hours in total
+# The supervised campaign, 165 runs, about 545 GPU-hours on two RTX 4090
 python scripts/run_campaign.py --list
 setsid nohup python scripts/run_campaign.py --go > runs/campaign.log 2>&1 &
 ```
@@ -91,20 +81,11 @@ setsid nohup python scripts/run_campaign.py --go > runs/campaign.log 2>&1 &
 Both runners are resumable: rerunning skips whatever already has a result. Campaign
 runs that need a pretrained encoder are skipped while `checkpoints/` is empty, so
 the two stages can run on different machines. `--list` therefore reports only the
-runs it can start right away: 97 of the 204, at 538 of the 983 GPU-hours, before any
-pretraining checkpoint exists; the rest appear in the plan as `checkpoints/` fills
-in and disappear from the SKIP lines above it.
+runs it can start right away, 98 of the 165 before any pretraining checkpoint exists;
+the rest appear in the plan as `checkpoints/` fills in and disappear from the SKIP
+lines above it.
 
 ## 6. Results
-
-```bash
-python scripts/collect_results.py             # evaluation logs -> results/all_results.csv
-python scripts/eval_london_perclass.py        # per-class Thames evaluation
-python scripts/export_train_loss.py           # per-epoch training loss
-python scripts/measure_localization_error.py  # per-parameter error of matched detections
-python scripts/measure_pseudo_labels.py       # what the pseudo-label sets contain
-python scripts/make_paper_tables.py           # -> results/tables/
-```
 
 The inference cost is measured separately, after the campaign, because a latency
 measured next to a training run measures the contention and not the model.
@@ -116,6 +97,17 @@ python scripts/run_speed_sweep.py --list
 setsid nohup python scripts/run_speed_sweep.py --go > runs/speed_sweep.log 2>&1 &
 ```
 
+The tables, figures and further measurements of the paper are then generated from the
+run records, the checkpoints and the data:
+
+```bash
+python scripts/make_paper_tables.py            # Figures 6 and 7, Tables 3 to 5 and C1, per-run mAP
+python scripts/export_train_loss.py            # training loss behind the learning rate, Section 2.4.2
+python scripts/measure_localization_error.py   # localization of the matched detections
+python scripts/analyze_seepersea_matches.py    # recall by vessel length and neighbourhood
+python scripts/dataset_statistics.py --grid-search   # Appendices A.1 and B.3, Section 2.3.3
+```
+
 The checkpoints behind the reported numbers are assembled for publication by
 
 ```bash
@@ -123,6 +115,7 @@ python scripts/make_checkpoint_release.py --dry-run
 python scripts/make_checkpoint_release.py --go
 ```
 
-`results/` is not part of the repository. The reporting scripts above write it, and
-what they write are the paper's numbers, which belong to the paper. A fresh clone
-therefore starts without it and fills it from the campaign it runs itself.
+`results/` is not part of the repository; the scripts above write it. The mAP of every
+run the paper reports is published in `release_data/results/map_per_run.csv`, and
+`make_paper_tables.py` writes the same file, `results/map_per_run.csv`, from a new
+campaign.

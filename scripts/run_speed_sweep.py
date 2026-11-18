@@ -25,10 +25,6 @@ excluded, so these are not end-to-end pipeline numbers. The frames come from the
 evaluation split the accuracy is measured on, so the point counts are the ones a
 deployment would see.
 
-The pseudo-label stage is a pretraining stage and changes no module at inference time,
-so the triple combination is architecturally mstnet_zaware_stage2_zonly and is measured
-once under that name.
-
 Usage:
   python run_speed_sweep.py --list     what it would measure, runs nothing
   setsid nohup python run_speed_sweep.py --go > runs/speed_sweep.log 2>&1 &
@@ -47,7 +43,7 @@ OPD = ROOT / "OpenPCDet"
 TED = ROOT / "TED"
 LION = ROOT / "LION"
 OUT = ROOT / "results" / "speed.jsonl"
-SPEED = ROOT / "benchmark_speed.py"
+SPEED = ROOT / "scripts" / "benchmark_speed.py"
 PY_PCDET = sys.executable
 PY_LION = os.environ.get("LION_PYTHON", "python")
 
@@ -78,18 +74,9 @@ BENCHMARK = [
     ("lion_mamba", "lion", "rand"),
 ]
 
-# The MSTNet family. The two that appear in the benchmark table are mstnet and mstnet_c;
-# the rest are the arms of E.VI, which is where the question of what a measure costs
-# actually bites, since both of them add work at inference time.
+# MSTNet with in-domain pretraining; both initializations share the architecture.
 MSTNet_BOTH = [
     ("mstnet", "openpcdet", "ssl"),
-    ("mstnet_c", "openpcdet", "ssl"),
-]
-MSTNet_SEEPERSEA = [
-    ("mstnet_zaware", "openpcdet", "ssl"),
-    ("mstnet_stage2", "openpcdet", "ssl"),
-    ("mstnet_zaware_stage2", "openpcdet", "ssl"),
-    ("mstnet_zaware_stage2_zonly", "openpcdet", "ssl"),
 ]
 
 
@@ -102,8 +89,6 @@ def jobs():
         # TED-S on Thames is the repaired per-class config; SeePerSea is single class and
         # runs the original one.
         J.append((ds, "ted_s_perclass" if ds == "london" else "ted_s", "ted", "rand"))
-    for stem, fw, tag in MSTNet_SEEPERSEA:
-        J.append(("seepersea", stem, fw, tag))
     return J
 
 

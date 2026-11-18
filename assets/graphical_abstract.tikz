@@ -1,21 +1,14 @@
-%% 2026-08-13 restructure: pseudo-label pretraining moved out of the row-2 approach
-%% stack into the self-supervised stage, with its own weight-transfer arrow for the
-%% backbone and the head, mirroring the encoder-weights arrow. The stage-1 frame
-%% grew downward to (2,-12) for that band. Row 2 keeps two approaches against the
-%% height error. Mirrors the O1/O4 re-registration of E.XI in the manuscript.
 \begin{tikzpicture}[
-    font=\footnotesize,
-    stage/.style={draw, rounded corners=1.2pt, align=center, inner sep=2.5pt,
-                  minimum height=6mm, text width=18mm, line width=0.3pt},
-    swapped/.style={stage, line width=0.9pt},
-    approach/.style={draw, rounded corners=1.2pt, align=center, inner sep=3pt,
-                     text width=30mm, font=\scriptsize, line width=0.3pt},
-    stageframe/.style={draw=black, rounded corners=2pt, line width=0.4pt,
-                       fill=black!3},
+    x=1mm, y=1mm,
+    font=\fontsize{7}{8.4}\selectfont,
+    stageframe/.style={draw=black, rounded corners=2pt, line width=0.4pt, fill=black!3},
+    module/.style={draw, rounded corners=1.2pt, align=center, inner sep=1mm,
+                   text width=19mm, minimum height=7mm, line width=0.3pt},
+    swapped/.style={module, line width=0.9pt},
     flow/.style={-{Latex[length=1.6mm,width=1.4mm]}, line width=0.5pt, draw=black},
-    title/.style={anchor=north, align=center, font=\footnotesize},
-    ann/.style={font=\scriptsize, align=center},
-    x=1mm, y=1mm]
+    headline/.style={anchor=north, align=center, inner sep=0pt, text width=36mm, font=\fontsize{8}{9.6}\selectfont},
+    caption text/.style={anchor=north, align=center, inner sep=0pt}]
+  \hypersetup{linkcolor=black}
 
   \def\quaypts{0.4/11.0,1.0/11.15,1.6/10.9,2.2/11.05,2.8/11.2,3.4/10.95,4.0/11.1,4.6/10.85,5.2/11.0,5.8/11.15,6.4/10.9,7.0/11.05,7.6/11.2,8.2/10.95,8.8/11.1,9.4/10.9,10.0/11.0,10.6/11.15,11.2/10.95,11.6/11.05}
   \def\boatApts{2.21/3.40,2.39/3.90,2.74/3.30,2.77/4.24,3.22/3.46,3.18/4.53,3.68/3.67,3.64/4.74,4.08/3.96,4.09/4.95,4.49/4.25,4.58/5.11,4.88/4.59,4.99/5.00,3.50/4.30,4.20/4.50}
@@ -24,101 +17,91 @@
   \def\occcells{0/5,1/5,2/5,3/5,4/5,5/5,1/1,1/2,2/1,2/2,3/3,4/3,0/3,3/4,5/1,2/0,4/4,0/1}
   \def\keptcells{1/5,4/5,1/1,2/2,4/3}
   \def\maskedcells{0/5,2/5,3/5,5/5,1/2,2/1,3/3,0/3,3/4,5/1,2/0,4/4,0/1}
-  \def\drawscene#1{%
-    \foreach \x/\y in \quaypts    {\fill (\x,\y) circle[radius=#1];}
-    \foreach \x/\y in \boatApts   {\fill (\x,\y) circle[radius=#1];}
-    \foreach \x/\y in \boatBpts   {\fill (\x,\y) circle[radius=#1];}
-    \foreach \x/\y in \clutterpts {\fill (\x,\y) circle[radius=#1];}}
+  \def\drawscene{%
+    \draw[line width=0.25pt] (0,0) rectangle (12,12);
+    \foreach \x/\y in \quaypts    {\fill (\x,\y) circle[radius=0.16];}
+    \foreach \x/\y in \boatApts   {\fill (\x,\y) circle[radius=0.16];}
+    \foreach \x/\y in \boatBpts   {\fill (\x,\y) circle[radius=0.16];}
+    \foreach \x/\y in \clutterpts {\fill (\x,\y) circle[radius=0.16];}}
   \def\drawboxes{%
     \draw[red!80!black, rotate around={30:(3.6,4.2)}, line width=0.45pt] (1.8,3.5) rectangle (5.4,4.9);
     \draw[red!80!black, rotate around={-20:(8.8,6.8)}, line width=0.45pt] (7.6,6.3) rectangle (10.0,7.3);}
 
-  %% ================ the two stage frames, drawn first so content sits on them =====
-  \draw[stageframe] (2,-12) rectangle (58,65);
-  \draw[stageframe] (70,-28) rectangle (112,65);
-  \node[title] at (30,64.2) {\scriptsize Self-Supervised Stage};
-  \node[title] at (91,64.2) {\scriptsize Supervised Stage};
+  %% ================ frames: three columns of 37.9 mm, two rows ======================
+  \draw[stageframe] (0,0)     rectangle (37.9,-82);
+  \draw[stageframe] (48.9,0)  rectangle (86.8,-82);
+  \draw[stageframe] (92.8,0)  rectangle (130.7,-82);
+  \draw[stageframe] (0,-88)    rectangle (37.9,-114);
+  \draw[stageframe] (48.9,-88) rectangle (130.7,-114);
 
-  %% ================ stage 1, self-supervised ======================================
-  %% unlabeled scene
-  \begin{scope}[shift={(5,27)}, scale=1.8333]
-    \draw[black, line width=0.25pt] (0,0) rectangle (12,12);
-    \drawscene{0.24}
+  %% ================ column 1, self-supervised stage =================================
+  \node[headline] at (18.95,-1) {Self-Supervised Stage\\(Sec.~2.2)};
+  \begin{scope}[shift={(3.5,-22)}]
+    \drawscene
   \end{scope}
-  \node[title, text width=29mm] at (16,25.5)
-    {\scriptsize Unlabeled\\LiDAR Data\\{\scriptsize Thames, SeePerSea,}\\{\scriptsize Pohang, KITTI}};
-
-  \draw[flow] (28,38) -- (32,38);
-
-  %% masked tokens
-  \begin{scope}[shift={(33,27)}, scale=1.8333]
+  \draw[flow] (15.5,-16) -- (22.4,-16);
+  \begin{scope}[shift={(22.4,-22)}]
     \foreach \c/\r in \keptcells {\fill[black!30] (2*\c,2*\r) rectangle (2*\c+2,2*\r+2);
                                   \fill (2*\c+1,2*\r+1) circle[radius=0.35];}
     \foreach \c/\r in \maskedcells
       {\draw[black!60, line width=0.2pt] (2*\c+0.35,2*\r+0.35) -- (2*\c+1.65,2*\r+1.65)
                                          (2*\c+0.35,2*\r+1.65) -- (2*\c+1.65,2*\r+0.35);}
     \draw[black!40, line width=0.15pt, step=2] (0,0) grid (12,12);
-    \draw[black, line width=0.25pt] (0,0) rectangle (12,12);
+    \draw[line width=0.25pt] (0,0) rectangle (12,12);
   \end{scope}
-  \node[title, text width=28mm] at (44,25.5) {\scriptsize Masked Geometric\\Pretraining};
+  \node[caption text, text width=20mm] at (9.8,-23) {Unlabeled Data\\Thames,\\SeePerSea,\\Pohang, KITTI\\(Sec.~2.3)};
+  \node[caption text, text width=16mm] at (28.4,-23) {Masked\\Geometric\\Pretraining};
 
-  %% the three reconstruction targets, glyphs as in pretraining.tikz
-  %% centroid, five points with their mean in red at (1.88,1.68) of the local frame
-  \begin{scope}[shift={(10,4.6)}]
-    \foreach \p in {(0.6,1.1),(1.9,0.6),(3.3,1.4),(2.4,2.3),(1.2,3.0)} {\fill \p circle[radius=0.3];}
-    \fill[red!80!black] (1.88,1.68) circle[radius=0.42];
+  %% the three reconstruction targets, centred in the space below the pretraining sketch
+  \begin{scope}[yshift=-12mm]
+  \node[caption text] at (18.95,-37.5) {Reconstruction Targets};
+  \begin{scope}[shift={(3.9,-46)}]
+    \foreach \p in {(0.6,1.1),(1.9,0.6),(3.3,1.4),(2.4,2.3),(1.2,3.0)} {\fill \p circle[radius=0.25];}
+    \fill[red!80!black] (1.88,1.68) circle[radius=0.38];
   \end{scope}
-  \node[ann, anchor=north] at (12,3.5) {Centroid};
-  %% surface normal, a patch with the perpendicular arrow
-  \draw[line width=0.5pt] (27.6,5.4) -- (32.4,6.6);
-  \draw[flow] (30,6) -- (29.3,8.8);
-  \node[ann, anchor=north] at (30,3.5) {Normal};
-  %% sub-voxel occupancy, a 2x2 block with two cells filled
-  \fill[black!45] (46,7) rectangle (48,9);
-  \fill[black!45] (48,5) rectangle (50,7);
-  \draw[black, line width=0.3pt] (46,5) rectangle (50,9);
-  \draw[black, line width=0.3pt] (48,5) -- (48,9) (46,7) -- (50,7);
-  \node[ann, anchor=north] at (48,3.5) {Occupancy};
+  \node[caption text] at (5.8,-46.6) {Centroid};
+  \draw[line width=0.5pt] (15,-44.8) -- (20,-43.8);
+  \draw[flow] (17.5,-44.3) -- (16.9,-41.8);
+  \node[caption text] at (17.5,-46.6) {Normal};
+  \fill[black!45] (27.5,-44) rectangle (29.5,-42);
+  \fill[black!45] (29.5,-46) rectangle (31.5,-44);
+  \draw[line width=0.3pt] (27.5,-46) rectangle (31.5,-42);
+  \draw[line width=0.3pt] (29.5,-46) -- (29.5,-42) (27.5,-44) -- (31.5,-44);
+  \node[caption text] at (29.5,-46.6) {Occupancy};
+  \end{scope}
 
-  %% pseudo-label pretraining, the second pretraining path of stage 1: cluster glyph
-  %% (points with the dashed cluster box) and one line of text
-  \foreach \p in {(6.0,-8.1),(7.0,-7.8),(8.0,-7.6),(6.7,-6.9)} \fill \p circle[radius=0.35];
-  \draw[red!80!black, densely dashed, line width=0.45pt] (5.2,-8.7) rectangle (9.4,-5.8);
-  \node[ann, anchor=west] at (11.5,-7.2) {Pseudo-Label Pretraining\\for Backbone and Head};
-
-  %% ================ what crosses from one stage to the other ======================
-  \draw[flow, densely dashed] (58.5,13) -- (74.6,13);
-  \node[ann, anchor=south] at (64,13.8) {Encoder\\Weights};
-  %% no label on this arrow: it continues the band text of stage 1, which already
-  %% names what crosses (weights for backbone and head)
-  \draw[flow, densely dashed] (58.5,-7.2) -- (74.6,-7.2);
-
-  %% ================ stage 2, supervised ===========================================
-  %% labeled input, the same scene with its two annotated boxes
-  \begin{scope}[shift={(77.5,35)}, scale=1.1667]
-    \draw[black, line width=0.22pt] (0,0) rectangle (12,12);
-    \drawscene{0.28}
+  %% ================ column 2, supervised stage ======================================
+  \node[headline] at (67.85,-1) {Supervised Stage\\(Sec.~2.1)};
+  \node[caption text] at (62,-9) {Labeled Data\\Thames, SeePerSea};
+  \begin{scope}[shift={(56,-27.5)}]
+    \drawscene
     \drawboxes
   \end{scope}
-  \node[ann, anchor=south, align=center] at (84.5,49.8)
-    {\scriptsize Labeled LiDAR\\ Thames, SeePerSea};
-  \draw[flow] (84.5,35) -- (84.5,30.5);
-
-  \node[swapped] (vfe)  at (84.5,26) {Mean Voxel\\Encoder};
-  \node[swapped] (sst)  at (84.5,13) {Sparse\\Transformer};
-  \node[stage]   (head) at (84.5,0)  {CenterPoint\\Head};
+  \node[swapped] (vfe)  at (62,-34.5) {Mean Voxel\\Encoder};
+  \node[swapped] (sst)  at (62,-46.5) {Sparse\\Transformer};
+  \node[module]  (head) at (62,-58.5) {Backbone and\\Center Head};
+  \draw[flow] (62,-27.5) -- (vfe.north);
   \draw[flow] (vfe) -- (sst);
   \draw[flow] (sst) -- (head);
+  \draw[flow] (head.south) -- (62,-66);
+  \begin{scope}[shift={(56,-78)}]
+    \drawscene
+    \drawboxes
+  \end{scope}
+  \node[caption text] at (62,-78.3) {Oriented 3D Boxes};
 
-  %% mini, one red mean token per occupied pillar
-  \begin{scope}[shift={(97,21.5)}, scale=0.75]
+  %% what crosses from column 1 to column 2
+  \draw[flow, densely dashed] (37.9,-46.5) -- (sst.west);
+  \node[caption text, anchor=south] at (43.4,-46.1) {Encoder\\Weights};
+
+  %% minis beside the modules
+  \begin{scope}[shift={(75,-38.5)}, scale=0.6667]
     \foreach \c/\r in \occcells {\fill[black!15] (2*\c,2*\r) rectangle (2*\c+2,2*\r+2);
                                  \fill[red!80!black] (2*\c+1,2*\r+1) circle[radius=0.5];}
     \draw[black!40, line width=0.12pt, step=2] (0,0) grid (12,12);
-    \draw[black, line width=0.2pt] (0,0) rectangle (12,12);
+    \draw[line width=0.2pt] (0,0) rectangle (12,12);
   \end{scope}
-  %% mini, window attention over the tokens
-  \begin{scope}[shift={(97,8.5)}, scale=0.75]
+  \begin{scope}[shift={(75,-50.5)}, scale=0.6667]
     \foreach \c/\r in \occcells {\fill[black!15] (2*\c,2*\r) rectangle (2*\c+2,2*\r+2);}
     \foreach \c/\r in {3/3,4/3,3/4,4/4} {\fill[black!30] (2*\c,2*\r) rectangle (2*\c+2,2*\r+2);}
     \draw[black!40, line width=0.12pt, step=2] (0,0) grid (12,12);
@@ -126,92 +109,62 @@
       {\draw[line width=0.3pt] \a -- \b;}
     \foreach \p in {(7,7),(9,7),(7,9),(9,9)} {\fill \p circle[radius=0.4];}
     \draw[line width=0.45pt] (6,6) rectangle (12,12);
-    \draw[black, line width=0.2pt] (0,0) rectangle (12,12);
+    \draw[line width=0.2pt] (0,0) rectangle (12,12);
   \end{scope}
-  %% mini, the center heatmap
-  \begin{scope}[shift={(97,-4.5)}, scale=0.75]
+  \begin{scope}[shift={(75,-62.5)}, scale=0.6667]
     \foreach \c/\r/\g in {1/2/85,0/1/25,0/2/25,0/3/25,1/1/25,1/3/25,2/1/25,2/2/25,2/3/25,4/3/85,3/2/25,3/3/25,3/4/25,4/2/25,4/4/25,5/2/25,5/3/25,5/4/25}
       {\fill[black!\g] (2*\c,2*\r) rectangle (2*\c+2,2*\r+2);}
     \draw[black!40, line width=0.12pt, step=2] (0,0) grid (12,12);
-    \draw[black, line width=0.2pt] (0,0) rectangle (12,12);
+    \draw[line width=0.2pt] (0,0) rectangle (12,12);
   \end{scope}
 
-  %% the detector output, the same scene with the predicted boxes
-  \draw[flow] (84.5,-4.25) -- (84.5,-8.5);
-  \begin{scope}[shift={(78.5,-20.5)}, scale=1.0]
-    \draw[black, line width=0.2pt] (0,0) rectangle (12,12);
-    \drawscene{0.3}
-    \drawboxes
-  \end{scope}
-  \node[title, text width=26mm] at (84.5,-21.5) {Oriented 3D Boxes};
-
-  %% ================ evaluation =========================
-  \draw[flow] (112.5,26) -- (117.5,26);
-  \draw[flow] (118,18) -- (160,18);
-  \draw[flow] (118,18) -- (118,46.5);
-  \node[ann, rotate=90, anchor=south] at (116.6,34.5) {Vessel AP};
-  \node[ann, anchor=north] at (139,16.8) {Labels, 5 to 100\%};
-  \draw[black, densely dashed, line width=0.5pt]
-    plot[smooth] coordinates {(120,20.5) (134,26) (148,30.5) (159,33.4)};
-  \draw[black, densely dotted, line width=0.5pt]
-    plot[smooth] coordinates {(120,23.5) (134,29) (148,33) (159,35.2)};
-  \draw[black, line width=0.5pt]
-    plot[smooth] coordinates {(120,33) (126,35.5) (137,36.5) (159,37.5)};
+  %% ================ column 3, evaluation ============================================
+  \draw[flow] (86.8,-38.5) -- (92.8,-38.5);
+  \node[headline] at (111.75,-1) {Evaluation\\(Sec.~3.1.1 and~3.1.2)};
+  \draw[line width=0.5pt] (95,-10.5) -- (98,-10.5);
+  \node[anchor=west] at (98.5,-10.5) {MSTNet, Pretrained};
+  \draw[densely dotted, line width=0.5pt] (95,-14) -- (98,-14);
+  \node[anchor=west] at (98.5,-14) {CenterPoint};
+  \draw[densely dashed, line width=0.5pt] (95,-17.5) -- (98,-17.5);
+  \node[anchor=west] at (98.5,-17.5) {MSTNet, Random Init};
+  \draw[flow] (98,-57) -- (128.5,-57);
+  \draw[flow] (98,-57) -- (98,-21);
+  \node[rotate=90, anchor=south] at (98,-39) {Vessel AP};
+  \draw[line width=0.5pt]
+    plot[smooth] coordinates {(99.5,-36) (105,-31) (115,-28.5) (127,-27)};
+  \draw[densely dotted, line width=0.5pt]
+    plot[smooth] coordinates {(99.5,-52) (109,-44) (119,-37) (127,-33)};
+  \draw[densely dashed, line width=0.5pt]
+    plot[smooth] coordinates {(99.5,-55) (109,-49) (119,-43) (127,-38)};
   \draw[-{Latex[length=1.6mm,width=1.4mm]}, red!80!black, line width=0.6pt]
-    (155,33) -- (120.9,33);
-  \node[ann, text=red!80!black, fill=white, inner sep=1.8pt] at (135,33) {Fewer Labels};
-  \draw[black, line width=0.5pt] (121,45) -- (124,45);
-  \node[ann, anchor=west] at (124.8,46.4) {MSTNet, Pretrained};
-  \draw[black, densely dotted, line width=0.5pt] (121,42) -- (124,42);
-  \node[ann, anchor=west] at (124.8,42.8) {CenterPoint};
-  \draw[black, densely dashed, line width=0.5pt] (121,39) -- (124,39);
-  \node[ann, anchor=west] at (124.8,39.2) {MSTNet, Random Init};
-  \node[title, text width=48mm] at (139,8.5)
-    {\scriptsize Evaluation on Thames and\\SeePerSea\\{\scriptsize Fine-Tuned at Every Label Budget}};
+    (119.5,-36) -- (100.4,-36);
+  \node[text=red!80!black, anchor=north] at (107,-36.3) {Fewer Labels};
+  \node[caption text] at (113.25,-57.6) {Labels, 5 to 100\,\%};
+  \node[caption text, text width=34mm] at (111.75,-65) {Fine-Tuned at Every Label Budget on Thames and SeePerSea};
 
-  %% ================ wrap into row 2, the arrow has the analysis label =========
-  \draw[flow, rounded corners=2pt] (161,26) -- (163,26) -- (163,-48) -- (141,-48);
-  \node[ann, anchor=south] at (151.5,-47.3) {2D--3D\\Analysis};
+  \begin{scope}[yshift=-5mm]
+  %% ================ row 2, column 1, appendices =====================================
+  \node[headline] at (18.95,-84) {Appendices};
+  \node[caption text, text width=37mm, font=\fontsize{7}{7.8}\selectfont] at (18.95,-89.5) {Implementation Details (A)\\Dataset Statistics (B)\\Control without\\Validation Frames (C)};
 
-  %% ================ row 2, right to left: analysis, approaches, benchmark =========
-  %% ---------------- the analysis, the error sits in the height --------------------
-  \begin{scope}
-    \draw[black, line width=0.25pt] (117,-57) rectangle (139,-39);
-    \foreach \x/\z in {120.5/-52.0,123/-52.4,125.5/-52.1,128/-52.3,130.5/-51.9,124/-49.8,126.5/-49.2,125/-46.9}
-      \fill (\x,\z) circle[radius=0.4];
-    \draw[red!80!black, densely dashed, line width=0.5pt] (119.5,-49.6) rectangle (134.5,-42.4);
-    \draw[{Latex[length=1.2mm,width=1.1mm]}-{Latex[length=1.2mm,width=1.1mm]},
-          red!80!black, line width=0.5pt] (136.5,-50.6) -- (136.5,-46);
+  %% ================ row 2, columns 2 and 3, benchmark, BEV mAP at overlap 0.5, red = MSTNet =
+  \draw[flow] (111.75,-77) -- (111.75,-83);
+  \node[anchor=east] at (111,-80) {Full Supervision};
+  \node[headline, text width=78mm] at (89.8,-84) {Benchmark against 11 Detectors (Sec.~3.2)};
+  \node[anchor=south west, inner sep=0.5pt] at (51,-90.6) {SeePerSea};
+  \foreach \i/\v/\c in {0/78.9/red!80!black,1/74.7/black!45,2/74.3/black!45,3/74.2/black!45,
+                        4/73.6/black!45,5/71.0/black!45,6/63.8/black!45,7/60.4/black!45,
+                        8/57.8/black!45,9/57.0/black!45,10/54.0/black!45,11/40.7/black!45}
+    {\fill[\c] (51,{-91-1.4*\i}) rectangle ({51+0.22*\v},{-92-1.4*\i});}
+  \draw[line width=0.4pt] (51,-90.8) -- (51,-107.6);
+  \node[anchor=west, inner sep=0.5pt, text=red!80!black] at (68.9,-91.5) {MSTNet 78.9};
+  \node[anchor=south west, inner sep=0.5pt] at (88,-90.6) {Thames};
+  \foreach \i/\v/\c in {0/96.9/black!45,1/93.7/black!45,2/91.4/black!45,3/90.4/black!45,
+                        4/90.2/black!45,5/90.0/black!45,6/89.6/black!45,7/89.5/black!45,
+                        8/87.2/black!45,9/86.8/black!45,10/86.8/black!45,11/84.2/red!80!black}
+    {\fill[\c] (88,{-91-1.4*\i}) rectangle ({88+0.22*\v},{-92-1.4*\i});}
+  \draw[line width=0.4pt] (88,-90.8) -- (88,-107.6);
+  \node[anchor=west, inner sep=0.5pt] at (109.8,-91.5) {PointPillars 96.9};
+  \node[anchor=west, inner sep=0.5pt, text=red!80!black] at (107.0,-106.9) {MSTNet 84.2};
   \end{scope}
-  \node[title, text width=36mm] at (128,-58.5) {Error in z-Dimension};
-
-  \draw[flow] (115.5,-48) -- (97,-48);
-
-  %% ---------------- the two approaches of Sec. 3.5, each with its glyph -----------
-  \node[approach] (a1) at (80,-43.5) {Height-Aware Encoding};
-  \node[approach] (a3) at (80,-54.5) {Local 3D Refinement};
-  %% glyph, the binned column of the zaware figure
-  \draw[black, line width=0.25pt] (56.5,-46.3) rectangle (59.5,-40.7);
-  \foreach \yy in {-44.9,-43.5,-42.1} \draw[black!40, line width=0.15pt] (56.5,\yy) -- (59.5,\yy);
-  \foreach \p in {(58.0,-45.5),(57.6,-43.0),(58.3,-41.4)} \fill[red!80!black] \p circle[radius=0.4];
-  %% glyph, the stage2 story: points, the dashed box missing them, the solid box
-  %% enclosing them after refinement
-  \foreach \p in {(56.2,-56.3),(57.2,-56.5),(58.2,-56.3),(57.0,-55.5)} \fill \p circle[radius=0.35];
-  \draw[red!80!black, densely dashed, line width=0.45pt] (55.4,-55.1) rectangle (59.2,-52.4);
-  \draw[red!80!black, line width=0.45pt] (55.4,-57.1) rectangle (59.2,-54.6);
-  \node[title, text width=40mm] at (80,-61.5)
-    {Two approaches against\\the height error};
-
-  \draw[flow] (53.5,-48) -- (46.5,-48);
-
-  %% ---------------- benchmark last, ranked bars, red = MSTNet, third on purpose --
-  \begin{scope}
-    \draw[black, line width=0.4pt] (22,-54.2) -- (22,-41.8);
-    \foreach \yy/\len in {-42.8/23, -44.8/20, -48.8/14, -50.8/11, -52.8/8}
-      \fill[black!45] (22,\yy-0.7) rectangle (22+\len,\yy+0.7);
-    \fill[red!80!black] (22,-47.5) rectangle (39,-46.1);
-  \end{scope}
-  \node[title, text width=36mm] at (34,-58.5)
-    {Benchmark against\\11 open-source detectors};
-
 \end{tikzpicture}

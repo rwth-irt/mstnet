@@ -23,12 +23,14 @@ EXPECT = {
     "london": {"range": [-100, -100, -20, 100, 100, 35],
                "classes": ["small_boat", "medium_boat", "large_boat"]},
 }
+# MSTNet runs at the rate with the lower final training loss (Section 2.4.2 of the paper).
+EXPECT_LR = {"mstnet": 0.001}
 # Deviations that are intrinsic to a method and are documented rather than forced away.
 ALLOWED = {
     "dsvt": "window shape needs a grid that is a multiple of 12, hence the padded range",
     "lion_mamba": "window shape needs 32 vertical bins, hence the coarser z voxel",
-    "pv_rcnn": "author learning rate",
-    "transfusion": "author learning rate and gradient clip",
+    "pv_rcnn": "learning rate of the reference configuration",
+    "transfusion": "learning rate and gradient clip of the reference configuration",
 }
 
 
@@ -107,7 +109,7 @@ def check(fw, ds, det):
     o = c.OPTIMIZATION
     if o.NUM_EPOCHS != 80:
         out.append(f"{tag}: {o.NUM_EPOCHS} epochs")
-    if abs(o.LR - 0.003) > 1e-9 and not allow:
+    if abs(o.LR - EXPECT_LR.get(det, 0.003)) > 1e-9 and not allow:
         out.append(f"{tag}: learning rate {o.LR}")
 
     pp = c.MODEL.get("POST_PROCESSING", {})
@@ -130,7 +132,8 @@ def main():
     for ds in ("seepersea", "london"):
         for det in DETECTORS:
             problems += check("OpenPCDet", ds, det)
-        problems += check("TED", ds, "ted_s")
+        # On Thames, TED-S runs with one RoI assignment threshold per class (ted_s_perclass).
+        problems += check("TED", ds, "ted_s_perclass" if ds == "london" else "ted_s")
         problems += check("LION", ds, "lion_mamba")
 
     if problems:
