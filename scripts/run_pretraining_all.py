@@ -1,4 +1,4 @@
-"""The nine self-supervised pretraining runs, on the renormalised data.
+"""The seven self-supervised pretraining runs, on the renormalised data.
 
 These are the critical path: every finetuning run waits for one of them. Two GPUs are
 used, one run each, and a run starts as soon as a GPU frees up.
@@ -37,20 +37,9 @@ RUNS = [
     ("ssl_kitti", "mstnet_ssl_kitti.pth"),
     ("ssl_pohang_seepersea", "mstnet_ssl_pohang_seepersea.pth"),
     ("ssl_pohang_london", "mstnet_ssl_pohang_london.pth"),
-    ("ssl_seepersea_zaware", "mstnet_ssl_seepersea_zaware.pth"),
-    # The learned-encoder arm of E.II. These two configs carry a pillar feature net that
-    # is shape-identical to OpenPCDet's DynPillarVFE, ten per-point inputs and two layers
-    # of 32 and 64, so its weights transfer into mstnet_c. Their predecessors
-    # ssl_seepersea_pfn and ssl_london_pfn had nine inputs and one 64-wide layer, which
-    # fits nothing on the detector side; every checkpoint built from them carried the
-    # transformer alone and left the detector's feature net randomly initialised.
-    ("ssl_seepersea_pfn10", "mstnet_c_ssl_seepersea.pth"),
-    ("ssl_london_pfn10", "mstnet_c_ssl_london.pth"),
+    # Control of Appendix C: in-domain SeePerSea without the validation frames.
+    ("ssl_seepersea_noval", "mstnet_ssl_seepersea_noval.pth"),
 ]
-
-# Configs whose learned voxel encoder has to travel with the transformer. Everything else
-# tokenizes with a parameter-free mean, so the SST-only converter is complete for it.
-PFN_RUNS = {"ssl_seepersea_pfn10", "ssl_london_pfn10"}
 
 lock = threading.Lock()
 queue = list(RUNS)
@@ -118,9 +107,8 @@ def run_one(gpu, stem, ckpt_name, port):
         latest = wd / "latest.pth"
         if latest.exists():
             CKPT.mkdir(parents=True, exist_ok=True)
-            converter = ("convert_geomae_pfn_ckpt.py" if stem in PFN_RUNS
-                         else "convert_geomae_ckpt.py")
-            r = subprocess.run([PY, str(ROOT / converter),
+            # Every encoder tokenizes with a parameter-free mean, so the SST alone transfers.
+            r = subprocess.run([PY, str(ROOT / "scripts" / "convert_geomae_ckpt.py"),
                                 str(latest), str(CKPT / ckpt_name)],
                                capture_output=True, text=True)
             conv = (CKPT / ckpt_name).exists()

@@ -33,6 +33,8 @@ from pathlib import Path
 
 import numpy as np
 
+ROOT = Path(__file__).resolve().parents[1]
+
 RAW = ROOT / "data" / "raw" / "PohangCanal_raw"
 ARCHIVES = ["pohang00_lidar_lidar_front.zip", "pohang01_lidar_lidar_front.zip"]
 RECORD = 7          # float32 per point in the raw release

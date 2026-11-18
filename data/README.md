@@ -19,7 +19,10 @@ The four forks reach this tree through relative symlinks, `OpenPCDet/data`,
 data/
   raw/                      the untouched public releases, the inputs
     london_dataset/         Thames, in the layout Datasets/real_world*/...
-    SeePerSea/aggregated/   the aggregated SeePerSea release (points, label, calib, ImageSets)
+    SeePerSea/aggregated/   the aggregated SeePerSea release (points, label, calib, ImageSets,
+                            sequence_file_counts.csv)
+    SeePerSea/separated/    the separated SeePerSea release, one folder per download with
+                            <sequence>/annotations, point_clouds, kitti_label
     PohangCanal_raw/        the archives, fetched by scripts/download_pohang_raw.py
     kitti/training/velodyne the KITTI 3D object detection scans
   custom_london/            detection dataset, written by scripts/convert_london.py
@@ -42,7 +45,8 @@ cost no additional storage.
 
 Each dataset is distributed by its own authors under their own terms, and this
 repository redistributes none of it. Obtain each release from its authors and
-observe the terms they attach to it. Of SeePerSea we use the aggregated release;
+observe the terms they attach to it. Of SeePerSea we use the point clouds of the
+aggregated release and the 360° point-cloud annotations of the separated release;
 of Pohang Canal the forward-facing Ouster OS1-64 of sequences 00 and 01; of KITTI
 the point clouds of the 3D object detection release and none of its annotations.
 
@@ -52,7 +56,10 @@ the point clouds of the 3D object detection release and none of its annotations.
 point cloud and one label file per frame, plus the frame lists. The Thames
 conversion reads the balanced temporal layout that
 `create_balanced_temporal_split.py` builds, not the released partition; the reason
-is in the paper and in `custom_london/ImageSets/README.md`.
+is in the paper and in `custom_london/ImageSets/README.md`. The SeePerSea
+conversion writes the 360° annotations of the separated release and verifies the
+frame correspondence between both releases; `--labels camera` writes the
+camera-field-of-view labels of the aggregated release instead.
 
 `prepare_ssl_datasets.py`, `rebuild_pohang_corpus.py` and
 `build_combined_ssl_sets.py` write the pretraining corpora in the nuScenes-style

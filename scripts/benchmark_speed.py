@@ -1,8 +1,8 @@
-"""Measure inference latency / FPS and peak GPU memory for one PCDet model
-config. Runs in whatever conda env invokes it (pcdet or ted). Works on an
-UNTRAINED model — the forward compute + post-processing are architecture
-properties, so this is a valid speed/memory proxy (final numbers re-measured on
-trained checkpoints during eval). Prints one JSON line.
+"""Measure inference latency and peak GPU memory for one PCDet model config.
+Runs in whatever conda env invokes it (pcdet or ted). run_speed_sweep.py passes the
+trained checkpoint of each reported run through --ckpt; without it, the model is
+untrained, which leaves the timing of the forward pass but not of the
+post-processing representative. Prints one JSON line.
 
 Usage: benchmark_speed.py <cfg.yaml> [--frames 50] [--warmup 5]
 """
@@ -25,6 +25,11 @@ def main():
     args = ap.parse_args()
 
     cfg_from_yaml_file(args.cfg, cfg)
+    # The debug checks of the SST are assertions only; they leave the output unchanged but
+    # cost time, so the inference time is measured without them, as in the paper.
+    sst = cfg.MODEL.get("MAP_TO_BEV", {}).get("SST", None)
+    if sst is not None:
+        sst.debug = False
     logger = common_utils.create_logger()
     ds, loader, _ = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG, class_names=cfg.CLASS_NAMES, batch_size=1,

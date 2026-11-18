@@ -1,8 +1,8 @@
-# MSTNet: Label-Efficient Maritime 3D LiDAR Object Detection by Self-Supervised Pretraining and Vertical Refinement
+# MSTNet: Label-Efficient Maritime 3D LiDAR Object Detection by Self-Supervised Pretraining
 
 Code, configurations and results for the paper of the same name.
 
-Tim Rehbronn, Laurens Keuker, Heike Vallery
+Tim Rehbronn, Laurens Keuker, Chih-Chun Chen, Christopher Schulte, Heike Vallery
 Institute of Automatic Control, RWTH Aachen University
 
 [Reproduce](docs/REPRODUCE.md) · [Environments](docs/ENVIRONMENTS.md) · [Data](data/README.md) · [Third-party code](THIRD_PARTY.md)
@@ -13,27 +13,28 @@ The code was written by Tim Rehbronn and Laurens Keuker, with coding assistance 
 
 ## Abstract
 
-> Maritime autonomous vessels need 3D object detection for safe navigation. This
-> requires supervised training with annotated data, which is scarce because
-> annotation is resource-intensive. Unlabeled vessel recordings are increasingly
-> available. This paper presents a Maritime Sparse Transformer Network (MSTNet), a
-> detection pipeline that enables label-free pretraining with supervised
-> fine-tuning. We replace the pillar feature net and CenterPoint's scatter
-> operation with a parameter-free mean voxel encoder and a single-stride sparse
-> transformer, and we pretrain the transformer with a masked geometric objective. A
-> second stage on clustered pseudo-labels initializes the convolutional backbone
-> and the center head. We evaluate on a re-split Thames and the SeePerSea datasets
-> across six label budgets and four pretraining data sources. On SeePerSea,
-> pretraining raises 3D mean average precision from 12.14 to 58.04 mAP at full
-> supervision, and MSTNet matches CenterPoint's full-supervision 3D accuracy using
-> 20 % of the annotations. Every detector we test localizes less accurately in 3D
-> than in the bird's-eye view. A height-aware token, together with a refinement
-> stage restricted to the vertical box parameters, cuts the median center height
-> error from 0.14 m to 0.08 m without further annotation. Against eleven
-> state-of-the-art detectors, MSTNet in its strongest configuration, the
-> height-aware token with vertical refinement, leads on SeePerSea with 77.52 mAP in
-> the bird's-eye view and 66.37 in 3D at 36 ms per frame, while PointPillars stays
-> ahead on the denser Thames recording. The code, the re-split dataset, and the
+> Maritime autonomous vessels often rely on 3D object detection, but supervised
+> training requires resource-intensive annotations, while unlabeled LiDAR
+> recordings are increasingly available. To utilize these recordings, this work
+> introduces the Maritime Sparse Transformer Network (MSTNet), a 3D LiDAR detection
+> pipeline that combines self-supervised pretraining with supervised fine-tuning.
+> In the CenterPoint baseline, a parameter-free mean voxel encoder replaces the
+> Pillar Feature Net, and a Single-Stride Sparse Transformer, pretrained with a
+> masked geometric objective, replaces the scatter operation. The pipeline is
+> evaluated at six label budgets on SeePerSea and a temporally re-split Thames
+> dataset with in-domain, cross-domain maritime, and automotive pretraining data,
+> and compared with eleven state-of-the-art detectors. On the sparse SeePerSea
+> dataset, pretraining increases the mean average precision (mAP) of MSTNet at
+> every budget, by 5.80 to 8.78 in the bird's-eye view (BEV) and by 6.91 to 16.52
+> in 3D. With 20 % of the annotations, pretrained MSTNet exceeds the 3D mAP of
+> fully supervised CenterPoint, and automotive scans also yield a gain. On the
+> denser Thames dataset, the improvement is limited to 5 % of the annotations,
+> with 5.02 in BEV and 5.75 in 3D, and cross-domain maritime pretraining tends to
+> outperform in-domain pretraining. Pretrained MSTNet ranks first in BEV on
+> SeePerSea with 78.90 mAP and second in 3D, 0.54 below VoxelNeXt. On Thames,
+> PointPillars leads with 96.85 mAP in BEV, and pretrained MSTNet remains below
+> every detector with 84.17. The point density, measurable without labels,
+> indicates the benefit of pretraining. The code, the frame lists, and the
 > checkpoints are publicly available.
 
 ![Graphical abstract](assets/graphical_abstract.svg)
@@ -41,35 +42,24 @@ The code was written by Tim Rehbronn and Laurens Keuker, with coding assistance 
 ## What this is
 
 Annotating maritime LiDAR point clouds is expensive; recording them is not. MSTNet
-puts the unlabeled recordings to work, in a pipeline built from published modules.
-The detector is CenterPoint with two modules exchanged: a mean voxel encoder
-replaces the learned pillar features, and a single-stride sparse transformer builds
-the bird's-eye feature map. That transformer is pretrained on unlabeled maritime
-point clouds with masked geometric pretraining (GeoMAE): most occupied pillars are
-masked and the encoder learns to reconstruct their centroids, surface normals and
-sub-voxel occupancy. The pretrained weights then initialize supervised training,
-which we run at label budgets from 5 % to 100 % to measure how much annotation the
-pretraining replaces, and with pretraining data from inside and outside the target
-domain (Thames, SeePerSea, Pohang Canal, KITTI) to measure how far from the target
-domain the unlabeled data may come.
+uses the unlabeled recordings in a pipeline built from published modules. The
+detector is CenterPoint with two modules exchanged: a mean voxel encoder replaces
+the learned pillar features, and a single-stride sparse transformer builds the
+bird's-eye feature map. That transformer is pretrained on unlabeled point clouds
+with masked geometric pretraining (GeoMAE): 70 % of the occupied pillars are masked,
+and the encoder learns to reconstruct their centroids, surface normals and sub-voxel
+occupancy. The pretrained weights then initialize supervised training, which we run
+at label budgets from 5 % to 100 % to measure how much annotation the pretraining
+replaces, and with pretraining data from inside and outside the target domain
+(Thames, SeePerSea, Pohang Canal, KITTI) to measure how far from the target domain
+the unlabeled data may come.
 
-Masked pretraining updates only the transformer, so at the smallest label budgets
-the convolutional backbone and the center head still start from a random
-initialization with few labels to fit them. A second, equally label-free stage
-addresses that: boxes fitted to clusters of unlabeled points pretrain the backbone
-and the head before fine-tuning on the real labels.
-
-Every detector we benchmark localizes vessels well in the bird's-eye view and loses
-most of its accuracy in the vertical axis, an error the annotation budget does not
-close. Two measures address it without spending a further label: a height-aware
-token that carries a coarse vertical profile of the pillar, and a local refinement
-stage restricted to the vertical box parameters.
-
-The paper closes with a benchmark that did not exist for this domain. Eleven
-published detector configurations (PointPillars, SECOND, CenterPoint, Voxel R-CNN,
-PV-RCNN, DSVT in its pillar and voxel form, VoxelNeXt, TransFusion, TED-S,
-LION-Mamba) and MSTNet are trained under one shared protocol on both datasets, with
-every deviation from that protocol documented and machine-checked.
+The paper closes with a benchmark under one shared protocol. Eleven published
+detector configurations (PointPillars, SECOND, CenterPoint, Voxel R-CNN, PV-RCNN,
+DSVT in its pillar and voxel form, VoxelNeXt, TransFusion, TED-S, LION-Mamba) and
+MSTNet are trained on the rebuilt Thames split and on the 360° point-cloud
+annotations of SeePerSea, with every deviation from that protocol documented and
+machine-checked.
 
 ## Repository structure
 
@@ -80,6 +70,8 @@ scripts/                           data preparation, checks, runners, evaluation
                                    reporting; every entry point lives here
 data/                              built locally from the public releases; only the split
                                    index files under custom_*/ImageSets ship
+release_data/                      the frame lists in the identifiers of the public
+                                   releases and the mAP of every reported run
 envs/                              conda exports and pip freezes of the three environments
 docs/                              REPRODUCE.md and ENVIRONMENTS.md
 results/                           not shipped; where the reporting scripts write the
@@ -119,10 +111,12 @@ export GEOMAE_PYTHON=~/miniconda3/envs/geomae/bin/python
 
 Obtain the four public releases from their authors as described in
 [data/README.md](data/README.md), place them under `data/raw/`, then build
-everything derived from them. The ordered command list is in
-[docs/REPRODUCE.md](docs/REPRODUCE.md). This repository redistributes no dataset
-content; what it publishes are the split index files and the scripts that build
-them, so the partition can be reproduced without the recordings changing hands.
+everything derived from them. Of SeePerSea, both the aggregated release (point
+clouds) and the separated release (360° annotations) are required. The ordered
+command list is in [docs/REPRODUCE.md](docs/REPRODUCE.md). This repository
+redistributes no dataset content; what it publishes are the split index files, the
+frame lists in `release_data/`, and the scripts that build them, so the partition
+can be reproduced without the recordings changing hands.
 
 ## Usage
 
@@ -136,12 +130,12 @@ python scripts/check_configs.py
 python scripts/check_training.py
 ```
 
-**Train.** The nine self-supervised runs first, then the supervised campaign. The
-campaign plans 204 runs in total, about 983 GPU-hours; `run_campaign.py --list`
-reports only the runs it can start immediately, which is 97 of them at 538
-GPU-hours before any pretraining checkpoint exists, and grows toward the full 204
-as `checkpoints/` fills in. Both runners drive two GPUs, record every result, and
-skip finished work on restart, so they can be stopped and resumed at will.
+**Train.** The seven self-supervised runs first, then the supervised campaign of 165
+runs, about 545 GPU-hours on two RTX 4090. `run_campaign.py --list` reports only the
+runs it can start immediately, 98 of them before any pretraining checkpoint exists, and
+grows toward the full 165 as `checkpoints/` fills in. Both runners drive two GPUs,
+record every result, and skip finished work on restart, so they can be stopped and
+resumed at will.
 
 ```bash
 python scripts/run_pretraining_all.py                        # writes checkpoints/
@@ -149,32 +143,26 @@ python scripts/run_campaign.py --list                        # the plan, trains 
 setsid nohup python scripts/run_campaign.py --go > runs/campaign.log 2>&1 &
 ```
 
-**Report.** Collect the evaluation logs into one CSV, take the measurements that are
-not average precision, and generate every table and figure from them.
+**Report.** Measure the inference cost once the campaign has finished, then generate
+the tables, figures and further measurements of the paper.
 
 ```bash
-python scripts/collect_results.py             # -> results/all_results.csv
-python scripts/eval_london_perclass.py        # per-class Thames evaluation
-python scripts/export_train_loss.py           # per-epoch training loss
-python scripts/measure_localization_error.py  # per-parameter error of matched detections
-python scripts/run_speed_sweep.py --go        # parameters, latency, peak memory
-python scripts/make_paper_tables.py           # -> results/tables/
+python scripts/run_speed_sweep.py --go               # parameters, latency, peak memory
+python scripts/make_paper_tables.py                  # Figures 6 and 7, Tables 3 to 5 and C1
+python scripts/export_train_loss.py                  # training loss behind the learning rate
+python scripts/measure_localization_error.py         # localization of the matched detections
+python scripts/analyze_seepersea_matches.py          # recall by vessel length and neighbourhood
+python scripts/dataset_statistics.py --grid-search   # Appendices A.1 and B.3
 ```
 
 ## Results
 
-This repository publishes the code, not the numbers. The measurements themselves
-belong to the paper, and the checkpoints behind them are on Zenodo.
-
-The reporting path builds them locally. `collect_results.py` reads the evaluation
-logs of a campaign into `results/all_results.csv`, one row per evaluation with the
-configuration it came from and all four metric combinations. The other reporting
-scripts write the measurements that are not average precision beside it:
-per-epoch training loss, the error of matched detections per box parameter, and
-parameters, latency and peak memory per architecture. `make_paper_tables.py` then
-generates every table and figure of the paper from those files into
-`results/tables/`; none is written by hand, so a rerun of a cell cannot leave a
-table disagreeing with the logs.
+The mAP of every run the paper reports is in `release_data/results/map_per_run.csv`;
+the means over the runs of a cell reproduce the tables and figures of the paper.
+`make_paper_tables.py` writes the same file from the records of a new campaign,
+together with every table and figure of the results, into `results/`. None is
+written by hand, so a rerun of a cell cannot leave a table disagreeing with the
+records.
 
 ## Checkpoints
 
@@ -183,11 +171,10 @@ on Zenodo, one checkpoint per reported run, with a table that maps each file to 
 experiment and configuration.
 
 > **DOI:** [10.5281/zenodo.22825184](https://doi.org/10.5281/zenodo.22825184)
-> (reserved; the record is not yet public, so the link may not resolve until it is).
 
-`scripts/make_checkpoint_release.py` assembles that folder from
-`results/all_results.csv`, so the path from a published checkpoint back to the row
-whose number it produced is itself reproducible.
+`scripts/make_checkpoint_release.py` assembles that folder from the run records, so
+the path from a published checkpoint back to the number it produced is itself
+reproducible.
 
 ### Using the published checkpoints
 
@@ -229,17 +216,13 @@ the `result.pkl` `test.py` just wrote, so no re-inference is needed.
 
 ## Citation
 
-> *Placeholder. The reference of the accepted version is inserted here once the
-> paper is published, with the DOI, volume and page numbers it is assigned.*
-
 ```bibtex
-@article{rehbronn2026mstnet,
-  title   = {{MSTNet}: Label-Efficient Maritime {3D} {LiDAR} Object Detection by
-             Self-Supervised Pretraining and Vertical Refinement},
-  author  = {Rehbronn, Tim and Keuker, Laurens and Vallery, Heike},
-  journal = {Journal of Intelligent \& Robotic Systems},
-  year    = {2026},
-  note    = {Submitted},
+@misc{rehbronn2026mstnet,
+  title  = {{MSTNet}: Label-Efficient Maritime {3D} {LiDAR} Object Detection by
+            Self-Supervised Pretraining},
+  author = {Rehbronn, Tim and Keuker, Laurens and Chen, Chih-Chun and
+            Schulte, Christopher and Vallery, Heike},
+  year   = {2026},
 }
 ```
 
